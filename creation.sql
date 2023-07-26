@@ -1,6 +1,6 @@
 # création de la table Utilisateur
 
-CREATE TABLE utilisateur(
+CREATE TABLE IF NOT EXISTS utilisateur(
     utilisateur_id INT AUTO_INCREMENT PRIMARY KEY,
     GSM varchar(10) NOT NULL,
     mail varchar(50) NOT NULL,
@@ -10,14 +10,14 @@ CREATE TABLE utilisateur(
 );
 
 # création de la table article
-CREATE TABLE article(
+CREATE TABLE IF NOT EXISTS article(
     article_id INT AUTO_INCREMENT PRIMARY KEY,
     nom varchar(50) NOT NULL,
     description varchar(50),
     prix FLOAT NOT NULL
 );
 
-CREATE TABLE utilisateur_article(
+CREATE TABLE IF NOT EXISTS utilisateur_article(
     article_id INT,
     utilisateur_id INT,
     quantite INT NOT NULL,
@@ -27,12 +27,12 @@ CREATE TABLE utilisateur_article(
         FOREIGN KEY (utilisateur_id) REFERENCES utilisateur(utilisateur_id)
 );
 
-CREATE TABLE pays(
+CREATE TABLE IF NOT EXISTS pays(
     pays_id INT AUTO_INCREMENT PRIMARY KEY,
     libelle varchar(50) NOT NULL
 );
 
-CREATE TABLE depot(
+CREATE TABLE IF NOT EXISTS depot(
     depot_id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
     nom varchar(50) NOT NULL,
     ville varchar(50) NOT NULL,
@@ -56,6 +56,7 @@ INSERT INTO article (nom,description,prix) VALUES ('GSM', 'appel à la belge',15
 INSERT INTO article (nom,description,prix) VALUES ('test', 'toto',12);
 INSERT INTO article (nom,description,prix) VALUES ('sergio', 'toto',10);
 INSERT INTO pays(libelle) VALUES ('France');
+INSERT INTO pays(libelle) VALUES ('France');
 INSERT INTO depot(nom,ville,pays_id)
     SELECT 'toto','Paris',pays_id
     FROM pays
@@ -70,7 +71,52 @@ INSERT INTO utilisateur (GSM, mail, nom, prenom, adresse) VALUES
 
 INSERT INTO article_depot (article_id, depot_id, quantite) VALUES (1,4,2);
 INSERT INTO article_depot (article_id, depot_id, quantite) VALUES (2,4,0);
-INSERT INTO article_depot (article_id, depot_id, quantite) VALUES (3,4,0);
+INSERT INTO article_depot (article_id, depot_id, quantite) VALUES (3,4,-1);
+
+# Trigger : permet de mettre en place des verifications sur la valeur des champs
+CREATE TRIGGER check_quantite_before_insert
+    BEFORE INSERT ON article_depot
+        FOR EACH ROW
+            BEGIN
+                IF NEW.quantite < 0 THEN
+                    SIGNAL SQLSTATE '45000'
+                    SET MESSAGE_TEXT = 'Erreur : la quantité ne peut pas être negative.';
+                end if;
+            end;
+
+CREATE TRIGGER check_quantite_before_update
+    BEFORE UPDATE ON article_depot
+        FOR EACH ROW
+            BEGIN
+                IF NEW.quantite < 0 THEN
+                    SIGNAL SQLSTATE '45000'
+                    SET MESSAGE_TEXT = 'Erreur : la quantité ne peut pas être negative.';
+                end if;
+            end;
+
+
+CREATE TABLE IF NOT EXISTS inventaire(
+    article_nom VARCHAR(255) NOT NULL,
+    quantite INT NOT NULL
+);
+# une procedure => une fonction
+# un event => permet de lancer une fonction à un moment données
+# par defaut, les evenements ne sont pas activé , voici comment les activer
+SET GLOBAL event_scheduler = ON;
+CREATE EVENT update_inventaire
+    ON SCHEDULE EVERY 1 YEAR
+    STARTS CURRENT_DATE #generalement on prend un format UTC
+    DO
+    BEGIN
+        INSERT INTO inventaire(article_nom,quantite)
+            SELECT a.nom, SUM(ad.quantite)
+                FROM article a
+                JOIN article_depot ad ON ad.article_id = a.article_id
+                GROUP BY a.article_id
+                HAVING SUM(ad.quantite) > 0;
+    end;
+
+
 
 
 START TRANSACTION;
