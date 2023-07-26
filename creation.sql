@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS article_depot(
 
 # alimentation (jeu de données)
 INSERT INTO article (nom,description,prix) VALUES ('GSM', 'appel à la belge',15.5);
+INSERT INTO article (nom,description,prix) VALUES ('test', 'toto',12);
+INSERT INTO article (nom,description,prix) VALUES ('sergio', 'toto',10);
 INSERT INTO pays(libelle) VALUES ('France');
 INSERT INTO depot(nom,ville,pays_id)
     SELECT 'toto','Paris',pays_id
@@ -67,9 +69,11 @@ INSERT INTO utilisateur (GSM, mail, nom, prenom, adresse) VALUES
                                                                '5 rue du pont');
 
 INSERT INTO article_depot (article_id, depot_id, quantite) VALUES (1,4,2);
+INSERT INTO article_depot (article_id, depot_id, quantite) VALUES (2,4,0);
+INSERT INTO article_depot (article_id, depot_id, quantite) VALUES (3,4,0);
 
 
-START TRANSACTION;                                                              '5 rue du pont');
+START TRANSACTION;
 SELECT * from utilisateur;
     #operation 1 : inserer l'enregistrement de la commande
     INSERT INTO utilisateur_article (article_id, utilisateur_id, quantite) VALUES
@@ -79,10 +83,17 @@ SELECT * from utilisateur;
 
     SELECT * from utilisateur_article;
     SELECT * from article_depot;
-COMMIT; # push (envoie vers le serveur)
+ROLLBACK ; # push (envoie vers le serveur)
 
+# Je veux tous les articles présent dans le depot 4
+SELECT *
+FROM article_depot
+WHERE depot_id = 4;
 
-
-
-
-
+# je veux le nom des articles qui coutent moins de 13 euros
+CREATE VIEW article_moins_treize_euros
+AS
+    SELECT a.nom
+    FROM article_depot as ad
+    JOIN article as a ON a.article_id = ad.article_id
+    WHERE depot_id = 4 and a.prix < 13;
